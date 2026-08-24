@@ -22,29 +22,48 @@ const state = {
 // --- Mode ".gotag" (khusus grup) -------------------------------
 // Kalau aktif untuk suatu grup, bot hanya membalas pesan yang
 // nge-tag (@mention) bot atau reply ke pesan bot itu sendiri.
-function normalizeJid(jid) {
+//
+// Catatan: WhatsApp sekarang bisa ngirim JID mention pakai domain
+// @lid (linked id) atau @s.whatsapp.net, tergantung akun. Makanya
+// perbandingannya cuma pakai bagian ID mentahnya aja (nomor/id di
+// depan "@"), domain-nya diabaikan supaya tetap match.
+function rawId(jid) {
   if (!jid) return null;
-  const user = jid.split('@')[0].split(':')[0];
-  return `${user}@s.whatsapp.net`;
+  return jid.split('@')[0].split(':')[0];
 }
 
-function isBotMentioned(msg, botJid) {
-  if (!botJid) return false;
-  const normalizedBot = normalizeJid(botJid);
+// Kumpulin semua kemungkinan identitas bot sendiri (id utama + lid kalau ada)
+function getSelfIds(sock) {
+  const ids = [rawId(sock?.user?.id), rawId(sock?.user?.lid)];
+  return ids.filter(Boolean);
+}
+
+function isBotMentioned(msg, sock) {
+  const selfIds = getSelfIds(sock);
+  if (selfIds.length === 0) return false;
 
   const ctx =
     msg.message?.extendedTextMessage?.contextInfo ||
     msg.message?.imageMessage?.contextInfo ||
-    msg.message?.videoMessage?.contextInfo ||
-    msg.message?.conversation?.contextInfo;
+    msg.message?.videoMessage?.contextInfo;
 
   const mentionedJid = ctx?.mentionedJid || [];
-  if (mentionedJid.some((jid) => normalizeJid(jid) === normalizedBot)) return true;
+  const mentioned = mentionedJid.some((jid) => selfIds.includes(rawId(jid)));
 
   // Reply langsung ke pesan bot juga dihitung sebagai "tag"
-  if (ctx?.participant && normalizeJid(ctx.participant) === normalizedBot) return true;
+  const repliedToBot = !!(ctx?.participant && selfIds.includes(rawId(ctx.participant)));
 
-  return false;
+  if (process.env.DEBUG_GOTAG === 'true') {
+    console.log('[gotag debug]', {
+      selfIds,
+      mentionedJid,
+      quotedParticipant: ctx?.participant,
+      mentioned,
+      repliedToBot,
+    });
+  }
+
+  return mentioned || repliedToBot;
 }
 
 async function startSocket() {
@@ -147,7 +166,7 @@ async function startSocket() {
       // Kalau mode gotag aktif untuk grup ini, skip auto-reply kecuali bot di-tag/di-reply
       if (isGroup) {
         const gotagEnabled = await getGotagMode(chatId);
-        if (gotagEnabled && !isBotMentioned(msg, state.sock?.user?.id)) {
+        if (gotagEnabled && !isBotMentioned(msg, state.sock)) {
           continue;
         }
       }
