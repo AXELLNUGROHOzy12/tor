@@ -105,6 +105,7 @@ let pollTimer = null;
 async function api(path, opts = {}) {
   const res = await fetch('/panel' + path, {
     ...opts,
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
   });
   if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
@@ -127,7 +128,7 @@ function showDash() {
 }
 
 async function checkSession() {
-  const r = await fetch('/panel/check-session').then(r => r.json());
+  const r = await fetch('/panel/check-session', { credentials: 'same-origin' }).then(r => r.json());
   if (r.loggedIn) showDash(); else showLogin();
 }
 
@@ -137,6 +138,7 @@ async function doLogin() {
   const password = $('loginPass').value;
   const res = await fetch('/panel/login', {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });

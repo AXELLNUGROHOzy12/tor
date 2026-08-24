@@ -9,7 +9,17 @@ router.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     req.session.loggedIn = true;
-    return res.json({ ok: true });
+    // Simpan sesi secara eksplisit sebelum membalas response. Tanpa ini,
+    // frontend bisa langsung fetch /panel/dashboard sepersekian detik
+    // setelah login sukses, sebelum sesi selesai ditulis ke store -> balik
+    // ke halaman login walau password benar.
+    return req.session.save((err) => {
+      if (err) {
+        console.error('Gagal simpan sesi:', err);
+        return res.status(500).json({ error: 'Gagal menyimpan sesi' });
+      }
+      res.json({ ok: true });
+    });
   }
   res.status(401).json({ error: 'Username atau password salah' });
 });
