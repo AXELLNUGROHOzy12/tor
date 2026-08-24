@@ -7,6 +7,7 @@ const { useDBAuthState, clearDBAuthState } = require('./pgAuthState');
 const { query } = require('../db');
 const { runAutoReply } = require('./chatbot');
 const { fireWebhooks } = require('./webhooks');
+const { getGotagMode, setGotagMode } = require('./groupSettings');
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'silent' });
 
@@ -17,6 +18,34 @@ const state = {
   qr: null, // data URL QR terbaru (base64 PNG)
   lastError: null,
 };
+
+// --- Mode ".gotag" (khusus grup) -------------------------------
+// Kalau aktif untuk suatu grup, bot hanya membalas pesan yang
+// nge-tag (@mention) bot atau reply ke pesan bot itu sendiri.
+function normalizeJid(jid) {
+  if (!jid) return null;
+  const user = jid.split('@')[0].split(':')[0];
+  return `${user}@s.whatsapp.net`;
+}
+
+function isBotMentioned(msg, botJid) {
+  if (!botJid) return false;
+  const normalizedBot = normalizeJid(botJid);
+
+  const ctx =
+    msg.message?.extendedTextMessage?.contextInfo ||
+    msg.message?.imageMessage?.contextInfo ||
+    msg.message?.videoMessage?.contextInfo ||
+    msg.message?.conversation?.contextInfo;
+
+  const mentionedJid = ctx?.mentionedJid || [];
+  if (mentionedJid.some((jid) => normalizeJid(jid) === normalizedBot)) return true;
+
+  // Reply langsung ke pesan bot juga dihitung sebagai "tag"
+  if (ctx?.participant && normalizeJid(ctx.participant) === normalizedBot) return true;
+
+  return false;
+}
 
 async function startSocket() {
   state.status = 'connecting';
@@ -94,6 +123,34 @@ async function startSocket() {
       );
 
       await fireWebhooks('message.received', { chatId, body, messageId: msg.key.id });
+
+      const isGroup = chatId.endsWith('@g.us');
+      const command = body.trim().toLowerCase();
+
+      // Command: .gotag on / .gotag off -> toggle mode "hanya balas kalau di-tag" (khusus grup)
+      if (command === '.gotag on' || command === '.gotag off') {
+        if (!isGroup) {
+          await sendTextMessage(chatId, 'Perintah .gotag cuma berlaku di dalam grup.');
+          continue;
+        }
+        const enabled = command === '.gotag on';
+        await setGotagMode(chatId, enabled);
+        await sendTextMessage(
+          chatId,
+          enabled
+            ? '✅ Mode gotag diaktifkan. Bot cuma akan merespon kalau di-tag/reply di grup ini.'
+            : '✅ Mode gotag dimatikan. Bot akan merespon seperti biasa di grup ini.'
+        );
+        continue;
+      }
+
+      // Kalau mode gotag aktif untuk grup ini, skip auto-reply kecuali bot di-tag/di-reply
+      if (isGroup) {
+        const gotagEnabled = await getGotagMode(chatId);
+        if (gotagEnabled && !isBotMentioned(msg, state.sock?.user?.id)) {
+          continue;
+        }
+      }
 
       // Auto-reply: cek keyword rules dulu, lalu fallback ke Claude Haiku kalau diaktifkan
       const replyText = await runAutoReply(body, chatId);
