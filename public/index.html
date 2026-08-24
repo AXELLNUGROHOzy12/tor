@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova C2 Panel</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --accent:#25d366; --text:#e8eaed; --muted:#8a8f98; --border:#262b35; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .row .card { flex:1; min-width: 200px; }
+  .stat-num { font-size: 28px; font-weight: 700; }
+  .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  input, select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0f1115; color:var(--text); margin-bottom:10px; font-size:14px; }
+  button { background: var(--accent); color:#06210f; border:none; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px; }
+  button.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+  button.danger { background:#e05555; color:#fff; }
+  .status-badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+  .status-connected { background:#123b23; color:#4ade80; }
+  .status-qr_pending { background:#3b3312; color:#facc15; }
+  .status-connecting { background:#1e2a3b; color:#60a5fa; }
+  .status-disconnected, .status-logged_out { background:#3b1414; color:#f87171; }
+  #qrImg { max-width: 220px; border-radius: 8px; margin-top: 12px; display:block; }
+  table { width:100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .hidden { display:none; }
+  .top-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .rule-list li { list-style:none; padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- LOGIN VIEW -->
+  <div id="loginView" class="card" style="max-width:360px; margin: 60px auto;">
+    <h1>Nova C2 Panel</h1>
+    <p class="sub">Login untuk mengelola bot</p>
+    <input id="loginUser" placeholder="Username">
+    <input id="loginPass" type="password" placeholder="Password">
+    <button onclick="doLogin()" style="width:100%">Login</button>
+    <p id="loginError" style="color:#f87171; font-size:13px; margin-top:8px;"></p>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashView" class="hidden">
+    <div class="top-bar">
+      <div>
+        <h1>Nova C2 Panel</h1>
+        <p class="sub">WhatsApp C2 backend admin</p>
+      </div>
+      <button class="secondary" onclick="doLogout()">Logout</button>
+    </div>
+
+    <div class="card">
+      <span id="statusBadge" class="status-badge">memuat...</span>
+      <div id="qrArea"></div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button class="secondary" onclick="restartSession()">Restart Sesi</button>
+        <button class="danger" onclick="logoutSession()">Logout WhatsApp</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card"><div class="stat-num" id="statTotal">-</div><div class="stat-label">Total Pesan</div></div>
+      <div class="card"><div class="stat-num" id="statIn">-</div><div class="stat-label">Masuk</div></div>
+      <div class="card"><div class="stat-num" id="statOut">-</div><div class="stat-label">Keluar</div></div>
+      <div class="card"><div class="stat-num" id="statRules">-</div><div class="stat-label">Rule Aktif</div></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Auto-Reply Rules</h3>
+      <input id="ruleKeyword" placeholder="Keyword (misal: halo)">
+      <select id="ruleMatchType">
+        <option value="contains">Mengandung kata</option>
+        <option value="exact">Sama persis</option>
+        <option value="startswith">Diawali dengan</option>
+      </select>
+      <input id="ruleReply" placeholder="Balasan otomatis">
+      <button onclick="addRule()">Tambah Rule</button>
+      <ul class="rule-list" id="ruleList" style="margin-top:12px; padding:0;"></ul>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Pesan Terbaru</h3>
+      <table>
+        <thead><tr><th>Arah</th><th>Chat</th><th>Isi</th><th>Waktu</th></tr></thead>
+        <tbody id="msgTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let pollTimer = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch('/panel' + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
+  return res.json();
+}
+
+function showLogin() {
+  $('loginView').classList.remove('hidden');
+  $('dashView').classList.add('hidden');
+  if (pollTimer) clearInterval(pollTimer);
+}
+
+function showDash() {
+  $('loginView').classList.add('hidden');
+  $('dashView').classList.remove('hidden');
+  loadDashboard();
+  loadRules();
+  loadMessages();
+  pollTimer = setInterval(loadDashboard, 5000);
+}
+
+async function checkSession() {
+  const r = await fetch('/panel/check-session').then(r => r.json());
+  if (r.loggedIn) showDash(); else showLogin();
+}
+
+async function doLogin() {
+  $('loginError').textContent = '';
+  const username = $('loginUser').value;
+  const password = $('loginPass').value;
+  const res = await fetch('/panel/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json();
+  if (data.ok) showDash();
+  else $('loginError').textContent = data.error || 'Login gagal';
+}
+
+async function doLogout() {
+  await api('/logout', { method: 'POST' });
+  showLogin();
+}
+
+async function loadDashboard() {
+  const d = await api('/dashboard');
+  const badge = $('statusBadge');
+  badge.textContent = d.status;
+  badge.className = 'status-badge status-' + d.status;
+
+  $('statTotal').textContent = d.totalMessages;
+  $('statIn').textContent = d.totalIn;
+  $('statOut').textContent = d.totalOut;
+  $('statRules').textContent = d.activeRules;
+
+  const qrArea = $('qrArea');
+  qrArea.innerHTML = d.qr ? `<img id="qrImg" src="${d.qr}">` : '';
+}
+
+async function restartSession() {
+  await api('/session/restart', { method: 'POST' });
+  loadDashboard();
+}
+
+async function logoutSession() {
+  if (!confirm('Yakin logout dari WhatsApp? Perlu scan QR ulang.')) return;
+  await api('/session/logout', { method: 'POST' });
+  loadDashboard();
+}
+
+async function loadRules() {
+  const d = await api('/rules');
+  const list = $('ruleList');
+  list.innerHTML = '';
+  d.rules.forEach(r => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${r.enabled ? '✅' : '⏸️'} <b>${r.keyword}</b> (${r.match_type}) → ${r.reply}</span>`;
+    const btns = document.createElement('span');
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'secondary';
+    toggleBtn.textContent = r.enabled ? 'Nonaktifkan' : 'Aktifkan';
+    toggleBtn.onclick = () => toggleRule(r.id);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger';
+    delBtn.style.marginLeft = '6px';
+    delBtn.textContent = 'Hapus';
+    delBtn.onclick = () => deleteRule(r.id);
+    btns.appendChild(toggleBtn);
+    btns.appendChild(delBtn);
+    li.appendChild(btns);
+    list.appendChild(li);
+  });
+}
+
+async function addRule() {
+  const keyword = $('ruleKeyword').value.trim();
+  const match_type = $('ruleMatchType').value;
+  const reply = $('ruleReply').value.trim();
+  if (!keyword || !reply) return alert('Isi keyword dan balasan dulu');
+  await api('/rules', { method: 'POST', body: JSON.stringify({ keyword, match_type, reply }) });
+  $('ruleKeyword').value = ''; $('ruleReply').value = '';
+  loadRules();
+  loadDashboard();
+}
+
+async function toggleRule(id) {
+  await api(`/rules/${id}/toggle`, { method: 'PATCH' });
+  loadRules();
+}
+
+async function deleteRule(id) {
+  await api(`/rules/${id}`, { method: 'DELETE' });
+  loadRules();
+  loadDashboard();
+}
+
+async function loadMessages() {
+  const d = await api('/messages');
+  const tbody = $('msgTable');
+  tbody.innerHTML = '';
+  d.messages.slice(0, 30).forEach(m => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${m.direction === 'in' ? '⬇️ Masuk' : '⬆️ Keluar'}</td><td>${m.chat_id}</td><td>${(m.body || '').slice(0,60)}</td><td>${new Date(m.created_at).toLocaleString('id-ID')}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+checkSession();
+</script>
+</body>
+</html>

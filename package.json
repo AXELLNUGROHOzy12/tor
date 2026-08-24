@@ -1,0 +1,31 @@
+{
+  "name": "wa-c2-backend",
+  "version": "1.0.0",
+  "description": "WhatsApp C2 backend (Baileys) with admin panel, deployable to Railway",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "@hapi/boom": "^10.0.1",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0",
+    "qrcode": "^1.5.4",
+    "pino": "^9.3.2",
+    "body-parser": "^1.20.2",
+    "node-cache": "^5.1.2",
+    "axios": "^1.7.7",
+    "express-session": "^1.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
