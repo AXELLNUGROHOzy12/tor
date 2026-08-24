@@ -95,8 +95,8 @@ async function startSocket() {
 
       await fireWebhooks('message.received', { chatId, body, messageId: msg.key.id });
 
-      // Auto-reply: cek keyword rules dulu, lalu fallback ke chatbot API kalau diaktifkan
-      const replyText = await runAutoReply(body);
+      // Auto-reply: cek keyword rules dulu, lalu fallback ke Claude Haiku kalau diaktifkan
+      const replyText = await runAutoReply(body, chatId);
       if (replyText) {
         await sendTextMessage(chatId, replyText);
       }

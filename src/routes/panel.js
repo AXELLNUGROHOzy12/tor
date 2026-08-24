@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const requirePanelLogin = require('../middleware/panelAuth');
 const wa = require('../services/whatsapp');
+const { clearHistory } = require('../services/chatbot');
 const { query } = require('../db');
 
 // POST /panel/login
@@ -89,6 +90,12 @@ router.delete('/rules/:id', async (req, res) => {
 
 router.patch('/rules/:id/toggle', async (req, res) => {
   await query(`UPDATE autoreply_rules SET enabled = NOT enabled WHERE id = $1`, [req.params.id]);
+  res.json({ ok: true });
+});
+
+// DELETE /panel/chatbot/history/:chatId  -> hapus riwayat percakapan AI satu kontak
+router.delete('/chatbot/history/:chatId', (req, res) => {
+  clearHistory(decodeURIComponent(req.params.chatId));
   res.json({ ok: true });
 });
 
