@@ -1,6 +1,7 @@
 'use strict';
 const TelegramBot = require('node-telegram-bot-api');
 const { query } = require('../db');
+const { runAutoReply } = require('./chatbot');
 
 // =============================================================
 // Integrasi Telegram Bot
@@ -20,17 +21,24 @@ function registerWaController(controller) {
 
 async function getTelegramConfig() {
   const res = await query(`SELECT value FROM settings WHERE key = $1`, [SETTINGS_KEY]);
-  if (res.rows.length === 0) return { token: '', chatId: '', forwardMessages: false };
+  if (res.rows.length === 0) return { token: '', chatId: '', forwardMessages: false, aiEnabled: true };
   const v = res.rows[0].value || {};
   return {
     token: v.token || '',
     chatId: v.chatId || '',
     forwardMessages: !!v.forwardMessages,
+    // default true kalau belum pernah diset, biar AI langsung aktif out-of-the-box
+    aiEnabled: v.aiEnabled === undefined ? true : !!v.aiEnabled,
   };
 }
 
-async function saveTelegramConfig({ token, chatId, forwardMessages }) {
-  const value = { token: token || '', chatId: chatId || '', forwardMessages: !!forwardMessages };
+async function saveTelegramConfig({ token, chatId, forwardMessages, aiEnabled }) {
+  const value = {
+    token: token || '',
+    chatId: chatId || '',
+    forwardMessages: !!forwardMessages,
+    aiEnabled: aiEnabled === undefined ? true : !!aiEnabled,
+  };
   await query(
     `INSERT INTO settings (key, value) VALUES ($1, $2)
      ON CONFLICT (key) DO UPDATE SET value = $2`,
@@ -45,6 +53,7 @@ function getBotRuntimeStatus() {
     running: !!bot,
     chatId: currentConfig?.chatId || '',
     forwardMessages: !!currentConfig?.forwardMessages,
+    aiEnabled: currentConfig?.aiEnabled !== false,
     hasToken: !!currentConfig?.token,
   };
 }
@@ -81,6 +90,8 @@ async function restartBot() {
         '/sessions — daftar sesi WA & statusnya',
         '/send <sessionId> <nomor> <pesan> — kirim pesan WA dari sesi tertentu',
         '',
+        'Selain command di atas, chat teks biasa ke bot ini akan dijawab otomatis (AI), sama seperti chatbot di WhatsApp.',
+        '',
         `Chat ID kamu: ${msg.chat.id}`,
       ].join('\n')
     );
@@ -106,6 +117,26 @@ async function restartBot() {
       bot.sendMessage(msg.chat.id, `✅ Terkirim lewat sesi "${sessionId}" ke ${to}`);
     } catch (err) {
       bot.sendMessage(msg.chat.id, `❌ Gagal kirim: ${err.message}`);
+    }
+  });
+
+  // --- Chat AI di Telegram ---------------------------------------
+  // Pesan teks biasa (bukan command) diperlakukan sama seperti chat WA:
+  // dicek keyword rules dulu (tabel autoreply_rules, dishare sama WA),
+  // baru fallback ke Claude Haiku kalau CHATBOT_ENABLED=true. Riwayat
+  // percakapan dipisah per chat Telegram lewat prefix "telegram:".
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || text.startsWith('/')) return; // command sudah ditangani onText di atas
+    if (currentConfig?.aiEnabled === false) return;
+
+    const historyKey = `telegram:${msg.chat.id}`;
+    try {
+      bot.sendChatAction(msg.chat.id, 'typing').catch(() => {});
+      const reply = await runAutoReply(text, historyKey);
+      if (reply) await bot.sendMessage(msg.chat.id, reply);
+    } catch (err) {
+      console.error('[telegram] gagal proses AI chat:', err.message);
     }
   });
 }

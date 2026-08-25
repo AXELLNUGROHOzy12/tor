@@ -126,15 +126,23 @@ router.get('/telegram', async (req, res) => {
     tokenPreview: cfg.token ? `${cfg.token.slice(0, 6)}...${cfg.token.slice(-4)}` : '',
     chatId: cfg.chatId,
     forwardMessages: cfg.forwardMessages,
+    aiEnabled: cfg.aiEnabled,
     running: runtime.running,
   });
 });
 
-// POST /panel/telegram  { token, chatId, forwardMessages }
+// POST /panel/telegram  { token, chatId, forwardMessages, aiEnabled }
+// token dikosongkan dari form berarti "jangan diganti" -> di-merge sama config lama.
 router.post('/telegram', async (req, res) => {
-  const { token, chatId, forwardMessages } = req.body;
+  const { token, chatId, forwardMessages, aiEnabled } = req.body;
   try {
-    await telegram.saveTelegramConfig({ token, chatId, forwardMessages });
+    const existing = await telegram.getTelegramConfig();
+    await telegram.saveTelegramConfig({
+      token: token || existing.token,
+      chatId: chatId !== undefined ? chatId : existing.chatId,
+      forwardMessages: forwardMessages !== undefined ? forwardMessages : existing.forwardMessages,
+      aiEnabled: aiEnabled !== undefined ? aiEnabled : existing.aiEnabled,
+    });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

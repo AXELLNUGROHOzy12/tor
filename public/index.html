@@ -188,6 +188,7 @@
       <p class="field-hint" id="tgTokenHint">Token disimpan terenkripsi di server, tidak ditampilkan ulang secara utuh.</p>
       <input id="tgChatId" placeholder="Chat ID admin (kirim /start ke bot untuk lihat Chat ID kamu)">
       <label class="check"><input type="checkbox" id="tgForward"> Forward semua pesan WA masuk ke Telegram</label>
+      <label class="check"><input type="checkbox" id="tgAi"> Aktifkan chat AI di Telegram (balas otomatis kayak WA)</label>
       <div class="btn-row">
         <button onclick="saveTelegram()">Simpan</button>
         <button class="secondary" onclick="testTelegram()">Kirim Tes</button>
@@ -375,6 +376,7 @@ async function loadTelegram() {
   const d = await api('/telegram');
   if (!$('tgChatId').matches(':focus')) $('tgChatId').value = d.chatId || '';
   $('tgForward').checked = !!d.forwardMessages;
+  $('tgAi').checked = d.aiEnabled !== false;
   $('tgToken').placeholder = d.hasToken ? `Token tersimpan (${d.tokenPreview})` : 'Bot Token dari @BotFather';
   $('tgStatus').textContent = d.hasToken
     ? (d.running ? '● Bot Telegram aktif' : '○ Token tersimpan tapi bot belum aktif')
@@ -385,7 +387,8 @@ async function saveTelegram() {
   const token = $('tgToken').value.trim();
   const chatId = $('tgChatId').value.trim();
   const forwardMessages = $('tgForward').checked;
-  const body = { chatId, forwardMessages };
+  const aiEnabled = $('tgAi').checked;
+  const body = { chatId, forwardMessages, aiEnabled };
   if (token) body.token = token; // kosong berarti tidak diganti
   const res = await api('/telegram', { method: 'POST', body: JSON.stringify(body) });
   if (res.ok) { $('tgToken').value = ''; loadTelegram(); }
