@@ -6,11 +6,9 @@ const { query } = require('../db');
 // ke PostgreSQL, bukan ke filesystem lokal. Ini WAJIB untuk Railway,
 // karena filesystem container tidak persisten antar-deploy/restart.
 
-const SESSION_ID = 'default';
-
-async function useDBAuthState() {
+async function useDBAuthState(sessionId = 'default') {
   const readCreds = async () => {
-    const res = await query('SELECT creds FROM wa_sessions WHERE id = $1', [SESSION_ID]);
+    const res = await query('SELECT creds FROM wa_sessions WHERE id = $1', [sessionId]);
     if (res.rows.length === 0) return initAuthCreds();
     return JSON.parse(JSON.stringify(res.rows[0].creds), BufferJSON.reviver);
   };
@@ -20,7 +18,7 @@ async function useDBAuthState() {
     await query(
       `INSERT INTO wa_sessions (id, creds, updated_at) VALUES ($1, $2, now())
        ON CONFLICT (id) DO UPDATE SET creds = $2, updated_at = now()`,
-      [SESSION_ID, serialized]
+      [sessionId, serialized]
     );
   };
 
@@ -32,7 +30,7 @@ async function useDBAuthState() {
       const res = await query(
         `SELECT key_id, value FROM wa_session_keys
          WHERE session_id = $1 AND key_type = $2 AND key_id = ANY($3)`,
-        [SESSION_ID, type, ids]
+        [sessionId, type, ids]
       );
       for (const row of res.rows) {
         let value = JSON.parse(JSON.stringify(row.value), BufferJSON.reviver);
@@ -55,14 +53,14 @@ async function useDBAuthState() {
                 `INSERT INTO wa_session_keys (session_id, key_type, key_id, value, updated_at)
                  VALUES ($1, $2, $3, $4, now())
                  ON CONFLICT (session_id, key_type, key_id) DO UPDATE SET value = $4, updated_at = now()`,
-                [SESSION_ID, type, id, serialized]
+                [sessionId, type, id, serialized]
               )
             );
           } else {
             tasks.push(
               query(
                 `DELETE FROM wa_session_keys WHERE session_id = $1 AND key_type = $2 AND key_id = $3`,
-                [SESSION_ID, type, id]
+                [sessionId, type, id]
               )
             );
           }
@@ -80,9 +78,9 @@ async function useDBAuthState() {
   };
 }
 
-async function clearDBAuthState() {
-  await query('DELETE FROM wa_sessions WHERE id = $1', [SESSION_ID]);
-  await query('DELETE FROM wa_session_keys WHERE session_id = $1', [SESSION_ID]);
+async function clearDBAuthState(sessionId = 'default') {
+  await query('DELETE FROM wa_sessions WHERE id = $1', [sessionId]);
+  await query('DELETE FROM wa_session_keys WHERE session_id = $1', [sessionId]);
 }
 
 module.exports = { useDBAuthState, clearDBAuthState };

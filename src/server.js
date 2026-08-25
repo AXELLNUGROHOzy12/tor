@@ -6,7 +6,8 @@ const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
 
 const { initSchema, pool } = require('./db');
-const { startSocket } = require('./services/whatsapp');
+const { restoreSessions } = require('./services/whatsapp');
+const { initTelegramBot } = require('./services/telegram');
 const apiRoutes = require('./routes/api');
 const panelRoutes = require('./routes/panel');
 
@@ -55,7 +56,8 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 async function main() {
   await initSchema();
-  await startSocket();
+  await restoreSessions();
+  await initTelegramBot();
 
   app.listen(PORT, () => {
     console.log(`Server jalan di port ${PORT}`);

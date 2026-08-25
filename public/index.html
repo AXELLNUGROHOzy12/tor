@@ -5,33 +5,137 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nova C2 Panel</title>
 <style>
-  :root { --bg:#0f1115; --card:#171a21; --accent:#25d366; --text:#e8eaed; --muted:#8a8f98; --border:#262b35; }
+  :root {
+    --bg-0: #0a0a0b;
+    --bg-1: #131315;
+    --glass: rgba(255,255,255,0.045);
+    --glass-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.09);
+    --border-soft: rgba(255,255,255,0.05);
+    --text: #ececee;
+    --text-dim: #9a9aa2;
+    --text-faint: #6a6a72;
+    --ok: #d7d7db;
+    --warn: #bdbdc4;
+    --err: #a8a8ae;
+    --radius: 16px;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-  .row { display:flex; gap:16px; flex-wrap:wrap; }
-  .row .card { flex:1; min-width: 200px; }
-  .stat-num { font-size: 28px; font-weight: 700; }
-  .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
-  input, select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0f1115; color:var(--text); margin-bottom:10px; font-size:14px; }
-  button { background: var(--accent); color:#06210f; border:none; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px; }
-  button.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
-  button.danger { background:#e05555; color:#fff; }
-  .status-badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-  .status-connected { background:#123b23; color:#4ade80; }
-  .status-qr_pending { background:#3b3312; color:#facc15; }
-  .status-connecting { background:#1e2a3b; color:#60a5fa; }
-  .status-disconnected, .status-logged_out { background:#3b1414; color:#f87171; }
-  #qrImg { max-width: 220px; border-radius: 8px; margin-top: 12px; display:block; }
-  table { width:100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--border); }
-  th { color: var(--muted); font-weight: 500; }
-  .hidden { display:none; }
-  .top-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .rule-list li { list-style:none; padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(255,255,255,0.05), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(255,255,255,0.035), transparent 40%),
+      var(--bg-0);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 19px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h3 { font-size: 14px; font-weight: 600; margin: 0 0 14px; color: var(--text); letter-spacing: 0.01em; }
+  .sub { color: var(--text-dim); font-size: 12.5px; margin-bottom: 0; }
+
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 30px -18px rgba(0,0,0,0.6);
+  }
+  .card { padding: 20px; margin-bottom: 14px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row .stat { flex: 1; min-width: 140px; padding: 16px 18px; }
+  .stat-num { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat-label { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+
+  input, select {
+    width: 100%; padding: 11px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+    color: var(--text); margin-bottom: 10px; font-size: 13.5px;
+    outline: none; transition: border-color .15s;
+  }
+  input::placeholder { color: var(--text-faint); }
+  input:focus, select:focus { border-color: rgba(255,255,255,0.25); }
+  select { color-scheme: dark; }
+
+  label.check { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); margin-bottom:10px; cursor:pointer; }
+  label.check input { width:auto; margin:0; }
+
+  button {
+    background: rgba(255,255,255,0.9);
+    color: #0a0a0b;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    transition: transform .08s, background .15s, opacity .15s;
+  }
+  button:hover { background: #fff; }
+  button:active { transform: scale(0.97); }
+  button.secondary {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  button.secondary:hover { background: var(--glass-hover); }
+  button.danger {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #d8d8dc;
+  }
+  button.danger:hover { background: rgba(255,255,255,0.12); }
+  button.ghost { background: transparent; border: 1px solid var(--border-soft); color: var(--text-dim); padding: 7px 12px; font-size: 12px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--border); color: var(--text-dim); letter-spacing: .02em;
+  }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .status-connected .dot { background: #eaeaea; box-shadow: 0 0 0 2px rgba(255,255,255,0.08); }
+  .status-connected { color: var(--text); }
+  .status-qr_pending .dot { background: #c9c9ce; }
+  .status-connecting .dot { background: #9a9aa2; }
+  .status-disconnected .dot, .status-logged_out .dot { background: #5a5a60; }
+
+  #loginView { max-width: 340px; margin: 90px auto 0; padding: 28px; }
+  #loginView h1 { text-align: center; margin-bottom: 4px; }
+  #loginView .sub { text-align: center; margin-bottom: 22px; }
+
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+
+  .session-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .session-card {
+    padding: 16px; border-radius: 14px;
+    background: rgba(255,255,255,0.035); border: 1px solid var(--border-soft);
+  }
+  .session-card .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .session-name { font-weight: 600; font-size: 14px; }
+  .session-id { color: var(--text-faint); font-size: 11px; margin-top: 1px; }
+  .session-phone { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
+  #qrImg, .qr-img { width: 100%; max-width: 200px; border-radius: 10px; margin: 10px auto 4px; display: block; filter: grayscale(1); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border-soft); }
+  th { color: var(--text-faint); font-weight: 500; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; }
+  td { color: var(--text-dim); }
+  td.body-cell { color: var(--text); }
+
+  .hidden { display: none !important; }
+  .rule-list { list-style: none; margin: 0; padding: 0; }
+  .rule-list li { padding: 10px 0; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
+  .rule-list li .txt { color: var(--text-dim); }
+  .rule-list li b { color: var(--text); }
+  .empty-hint { color: var(--text-faint); font-size: 12.5px; padding: 10px 0; }
+  .error-text { color: #c7c7cc; font-size: 12.5px; margin-top: 8px; }
+  .field-hint { color: var(--text-faint); font-size: 11.5px; margin: -6px 0 12px; }
+  .divider { height: 1px; background: var(--border-soft); margin: 14px 0; }
 </style>
 </head>
 <body>
@@ -39,13 +143,13 @@
 <div class="wrap">
 
   <!-- LOGIN VIEW -->
-  <div id="loginView" class="card" style="max-width:360px; margin: 60px auto;">
+  <div id="loginView" class="glass hidden">
     <h1>Nova C2 Panel</h1>
     <p class="sub">Login untuk mengelola bot</p>
     <input id="loginUser" placeholder="Username">
     <input id="loginPass" type="password" placeholder="Password">
-    <button onclick="doLogin()" style="width:100%">Login</button>
-    <p id="loginError" style="color:#f87171; font-size:13px; margin-top:8px;"></p>
+    <button onclick="doLogin()" style="width:100%">Masuk</button>
+    <p id="loginError" class="error-text"></p>
   </div>
 
   <!-- DASHBOARD VIEW -->
@@ -53,29 +157,47 @@
     <div class="top-bar">
       <div>
         <h1>Nova C2 Panel</h1>
-        <p class="sub">WhatsApp C2 backend admin</p>
+        <p class="sub">WhatsApp multi-sesi + integrasi Telegram</p>
       </div>
       <button class="secondary" onclick="doLogout()">Logout</button>
     </div>
 
-    <div class="card">
-      <span id="statusBadge" class="status-badge">memuat...</span>
-      <div id="qrArea"></div>
-      <div style="margin-top:12px; display:flex; gap:8px;">
-        <button class="secondary" onclick="restartSession()">Restart Sesi</button>
-        <button class="danger" onclick="logoutSession()">Logout WhatsApp</button>
-      </div>
-    </div>
-
     <div class="row">
-      <div class="card"><div class="stat-num" id="statTotal">-</div><div class="stat-label">Total Pesan</div></div>
-      <div class="card"><div class="stat-num" id="statIn">-</div><div class="stat-label">Masuk</div></div>
-      <div class="card"><div class="stat-num" id="statOut">-</div><div class="stat-label">Keluar</div></div>
-      <div class="card"><div class="stat-num" id="statRules">-</div><div class="stat-label">Rule Aktif</div></div>
+      <div class="glass stat"><div class="stat-num" id="statSessions">-</div><div class="stat-label">Sesi Terhubung</div></div>
+      <div class="glass stat"><div class="stat-num" id="statTotal">-</div><div class="stat-label">Total Pesan</div></div>
+      <div class="glass stat"><div class="stat-num" id="statIn">-</div><div class="stat-label">Masuk</div></div>
+      <div class="glass stat"><div class="stat-num" id="statOut">-</div><div class="stat-label">Keluar</div></div>
+      <div class="glass stat"><div class="stat-num" id="statRules">-</div><div class="stat-label">Rule Aktif</div></div>
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0;">Auto-Reply Rules</h3>
+    <!-- SESSIONS -->
+    <div class="glass card">
+      <h3>Sesi WhatsApp</h3>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <input id="newSessionLabel" placeholder="Nama sesi (misal: CS Toko 1)" style="margin-bottom:0;">
+        <button onclick="createSession()" style="white-space:nowrap;">+ Tambah Sesi</button>
+      </div>
+      <div id="sessionGrid" class="session-grid"></div>
+      <p id="sessionEmptyHint" class="empty-hint hidden">Belum ada sesi. Tambahkan sesi pertama di atas.</p>
+    </div>
+
+    <!-- TELEGRAM -->
+    <div class="glass card">
+      <h3>Integrasi Telegram</h3>
+      <input id="tgToken" placeholder="Bot Token dari @BotFather" autocomplete="off">
+      <p class="field-hint" id="tgTokenHint">Token disimpan terenkripsi di server, tidak ditampilkan ulang secara utuh.</p>
+      <input id="tgChatId" placeholder="Chat ID admin (kirim /start ke bot untuk lihat Chat ID kamu)">
+      <label class="check"><input type="checkbox" id="tgForward"> Forward semua pesan WA masuk ke Telegram</label>
+      <div class="btn-row">
+        <button onclick="saveTelegram()">Simpan</button>
+        <button class="secondary" onclick="testTelegram()">Kirim Tes</button>
+      </div>
+      <p id="tgStatus" class="field-hint" style="margin-top:10px;"></p>
+    </div>
+
+    <!-- AUTOREPLY RULES -->
+    <div class="glass card">
+      <h3>Auto-Reply Rules</h3>
       <input id="ruleKeyword" placeholder="Keyword (misal: halo)">
       <select id="ruleMatchType">
         <option value="contains">Mengandung kata</option>
@@ -84,13 +206,14 @@
       </select>
       <input id="ruleReply" placeholder="Balasan otomatis">
       <button onclick="addRule()">Tambah Rule</button>
-      <ul class="rule-list" id="ruleList" style="margin-top:12px; padding:0;"></ul>
+      <ul class="rule-list" id="ruleList"></ul>
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0;">Pesan Terbaru</h3>
+    <!-- MESSAGES -->
+    <div class="glass card">
+      <h3>Pesan Terbaru</h3>
       <table>
-        <thead><tr><th>Arah</th><th>Chat</th><th>Isi</th><th>Waktu</th></tr></thead>
+        <thead><tr><th>Sesi</th><th>Arah</th><th>Chat</th><th>Isi</th><th>Waktu</th></tr></thead>
         <tbody id="msgTable"></tbody>
       </table>
     </div>
@@ -121,10 +244,16 @@ function showLogin() {
 function showDash() {
   $('loginView').classList.add('hidden');
   $('dashView').classList.remove('hidden');
+  loadAll();
+  pollTimer = setInterval(loadAll, 5000);
+}
+
+function loadAll() {
   loadDashboard();
+  loadSessions();
   loadRules();
   loadMessages();
-  pollTimer = setInterval(loadDashboard, 5000);
+  loadTelegram();
 }
 
 async function checkSession() {
@@ -154,49 +283,148 @@ async function doLogout() {
 
 async function loadDashboard() {
   const d = await api('/dashboard');
-  const badge = $('statusBadge');
-  badge.textContent = d.status;
-  badge.className = 'status-badge status-' + d.status;
-
+  $('statSessions').textContent = `${d.connectedSessions}/${d.totalSessions}`;
   $('statTotal').textContent = d.totalMessages;
   $('statIn').textContent = d.totalIn;
   $('statOut').textContent = d.totalOut;
   $('statRules').textContent = d.activeRules;
-
-  const qrArea = $('qrArea');
-  qrArea.innerHTML = d.qr ? `<img id="qrImg" src="${d.qr}">` : '';
 }
 
-async function restartSession() {
-  await api('/session/restart', { method: 'POST' });
+// ---------------- Sessions ----------------
+
+async function loadSessions() {
+  const d = await api('/sessions');
+  const grid = $('sessionGrid');
+  grid.innerHTML = '';
+  $('sessionEmptyHint').classList.toggle('hidden', d.sessions.length > 0);
+
+  d.sessions.forEach((s) => {
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    card.innerHTML = `
+      <div class="head">
+        <div>
+          <div class="session-name">${escapeHtml(s.label)}</div>
+          <div class="session-id">${escapeHtml(s.id)}</div>
+        </div>
+        <span class="status-badge status-${s.status}"><span class="dot"></span>${statusLabel(s.status)}</span>
+      </div>
+      ${s.phoneNumber ? `<div class="session-phone">📱 ${escapeHtml(s.phoneNumber)}</div>` : ''}
+      ${s.qr ? `<img class="qr-img" src="${s.qr}">` : ''}
+      ${s.lastError ? `<p class="error-text">${escapeHtml(s.lastError)}</p>` : ''}
+    `;
+    const btnRow = document.createElement('div');
+    btnRow.className = 'btn-row';
+
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'secondary';
+    restartBtn.textContent = 'Restart';
+    restartBtn.onclick = () => sessionAction(s.id, 'restart');
+
+    const logoutBtn = document.createElement('button');
+    logoutBtn.className = 'danger';
+    logoutBtn.textContent = 'Logout';
+    logoutBtn.onclick = () => sessionAction(s.id, 'logout');
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ghost';
+    delBtn.textContent = 'Hapus';
+    delBtn.onclick = () => deleteSession(s.id);
+
+    btnRow.append(restartBtn, logoutBtn, delBtn);
+    card.appendChild(btnRow);
+    grid.appendChild(card);
+  });
+}
+
+function statusLabel(s) {
+  return {
+    connected: 'Terhubung',
+    qr_pending: 'Scan QR',
+    connecting: 'Menghubungkan',
+    disconnected: 'Terputus',
+    logged_out: 'Logout',
+  }[s] || s;
+}
+
+async function createSession() {
+  const label = $('newSessionLabel').value.trim();
+  if (!label) return alert('Isi nama sesi dulu');
+  await api('/sessions', { method: 'POST', body: JSON.stringify({ label }) });
+  $('newSessionLabel').value = '';
+  loadSessions();
   loadDashboard();
 }
 
-async function logoutSession() {
-  if (!confirm('Yakin logout dari WhatsApp? Perlu scan QR ulang.')) return;
-  await api('/session/logout', { method: 'POST' });
+async function sessionAction(id, action) {
+  await api(`/sessions/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+  loadSessions();
   loadDashboard();
 }
+
+async function deleteSession(id) {
+  if (!confirm(`Hapus sesi "${id}" secara permanen? Perlu scan QR ulang dari awal kalau mau pakai lagi.`)) return;
+  await api(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  loadSessions();
+  loadDashboard();
+}
+
+// ---------------- Telegram ----------------
+
+async function loadTelegram() {
+  const d = await api('/telegram');
+  if (!$('tgChatId').matches(':focus')) $('tgChatId').value = d.chatId || '';
+  $('tgForward').checked = !!d.forwardMessages;
+  $('tgToken').placeholder = d.hasToken ? `Token tersimpan (${d.tokenPreview})` : 'Bot Token dari @BotFather';
+  $('tgStatus').textContent = d.hasToken
+    ? (d.running ? '● Bot Telegram aktif' : '○ Token tersimpan tapi bot belum aktif')
+    : 'Belum ada bot Telegram yang dikonfigurasi';
+}
+
+async function saveTelegram() {
+  const token = $('tgToken').value.trim();
+  const chatId = $('tgChatId').value.trim();
+  const forwardMessages = $('tgForward').checked;
+  const body = { chatId, forwardMessages };
+  if (token) body.token = token; // kosong berarti tidak diganti
+  const res = await api('/telegram', { method: 'POST', body: JSON.stringify(body) });
+  if (res.ok) { $('tgToken').value = ''; loadTelegram(); }
+  else alert(res.error || 'Gagal menyimpan');
+}
+
+async function testTelegram() {
+  const res = await api('/telegram/test', { method: 'POST' });
+  alert(res.ok ? 'Pesan tes terkirim ✅' : (res.error || 'Gagal kirim tes'));
+}
+
+// ---------------- Rules ----------------
 
 async function loadRules() {
   const d = await api('/rules');
   const list = $('ruleList');
   list.innerHTML = '';
+  if (d.rules.length === 0) {
+    list.innerHTML = '<p class="empty-hint">Belum ada rule.</p>';
+    return;
+  }
   d.rules.forEach(r => {
     const li = document.createElement('li');
-    li.innerHTML = `<span>${r.enabled ? '✅' : '⏸️'} <b>${r.keyword}</b> (${r.match_type}) → ${r.reply}</span>`;
+    const txt = document.createElement('span');
+    txt.className = 'txt';
+    txt.innerHTML = `${r.enabled ? '●' : '○'} <b>${escapeHtml(r.keyword)}</b> (${r.match_type}) → ${escapeHtml(r.reply)}`;
     const btns = document.createElement('span');
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'secondary';
     toggleBtn.textContent = r.enabled ? 'Nonaktifkan' : 'Aktifkan';
     toggleBtn.onclick = () => toggleRule(r.id);
     const delBtn = document.createElement('button');
-    delBtn.className = 'danger';
+    delBtn.className = 'ghost';
     delBtn.style.marginLeft = '6px';
     delBtn.textContent = 'Hapus';
     delBtn.onclick = () => deleteRule(r.id);
     btns.appendChild(toggleBtn);
     btns.appendChild(delBtn);
+    li.appendChild(txt);
     li.appendChild(btns);
     list.appendChild(li);
   });
@@ -224,15 +452,23 @@ async function deleteRule(id) {
   loadDashboard();
 }
 
+// ---------------- Messages ----------------
+
 async function loadMessages() {
   const d = await api('/messages');
   const tbody = $('msgTable');
   tbody.innerHTML = '';
   d.messages.slice(0, 30).forEach(m => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${m.direction === 'in' ? '⬇️ Masuk' : '⬆️ Keluar'}</td><td>${m.chat_id}</td><td>${(m.body || '').slice(0,60)}</td><td>${new Date(m.created_at).toLocaleString('id-ID')}</td>`;
+    tr.innerHTML = `<td>${escapeHtml(m.session_id || '-')}</td><td>${m.direction === 'in' ? '↓ Masuk' : '↑ Keluar'}</td><td>${escapeHtml(m.chat_id)}</td><td class="body-cell">${escapeHtml((m.body || '').slice(0,60))}</td><td>${new Date(m.created_at).toLocaleString('id-ID')}</td>`;
     tbody.appendChild(tr);
   });
+}
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
 }
 
 checkSession();

@@ -6,53 +6,69 @@ const { query } = require('../db');
 
 router.use(apiKeyAuth);
 
-// GET /api/v1/qr
+// GET /api/v1/sessions -> daftar semua sesi WA & statusnya
+router.get('/sessions', (req, res) => {
+  res.json({ sessions: wa.getAllStatuses() });
+});
+
+// GET /api/v1/qr?sessionId=default
 router.get('/qr', (req, res) => {
-  const status = wa.getStatus();
+  const sessionId = req.query.sessionId || 'default';
+  const status = wa.getStatus(sessionId);
+  if (!status) return res.status(404).json({ error: `Sesi "${sessionId}" tidak ditemukan` });
   if (status.status !== 'qr_pending' || !status.qr) {
     return res.status(404).json({ error: 'QR tidak tersedia saat ini', status: status.status });
   }
   res.json({ qr: status.qr, status: status.status });
 });
 
-// GET /api/v1/session/status
+// GET /api/v1/session/status?sessionId=default
 router.get('/session/status', (req, res) => {
-  const status = wa.getStatus();
+  const sessionId = req.query.sessionId || 'default';
+  const status = wa.getStatus(sessionId);
+  if (!status) return res.status(404).json({ error: `Sesi "${sessionId}" tidak ditemukan` });
   res.json({ status: status.status, lastError: status.lastError });
 });
 
-// POST /api/v1/session/logout
+// POST /api/v1/session/logout  { sessionId }
 router.post('/session/logout', async (req, res) => {
-  await wa.logout();
+  const sessionId = req.body?.sessionId || 'default';
+  await wa.logout(sessionId);
   res.json({ ok: true });
 });
 
-// POST /api/v1/session/restart  (mulai ulang koneksi, misal untuk pairing baru)
+// POST /api/v1/session/restart  { sessionId, label }
 router.post('/session/restart', async (req, res) => {
-  await wa.startSocket();
+  const sessionId = req.body?.sessionId || 'default';
+  await wa.startSocket(sessionId, req.body?.label);
   res.json({ ok: true });
 });
 
-// POST /api/v1/send-message
+// POST /api/v1/send-message  { sessionId, to, message }
 router.post('/send-message', async (req, res) => {
   const { to, message } = req.body;
+  const sessionId = req.body?.sessionId || 'default';
   if (!to || !message) {
     return res.status(400).json({ error: 'Field "to" dan "message" wajib diisi' });
   }
   try {
-    const result = await wa.sendTextMessage(to, message);
+    const result = await wa.sendTextMessage(sessionId, to, message);
     res.json({ ok: true, messageId: result?.key?.id || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/v1/messages?chatId=&from=&to=&limit=
+// GET /api/v1/messages?chatId=&from=&to=&limit=&sessionId=
 router.get('/messages', async (req, res) => {
-  const { chatId, from, to, limit } = req.query;
+  const { chatId, from, to, limit, sessionId } = req.query;
   const conditions = [];
   const params = [];
 
+  if (sessionId) {
+    params.push(sessionId);
+    conditions.push(`session_id = $${params.length}`);
+  }
   if (chatId) {
     params.push(chatId);
     conditions.push(`chat_id = $${params.length}`);

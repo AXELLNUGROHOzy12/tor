@@ -33,10 +33,22 @@ async function initSchema() {
     );
   `);
 
+  // Metadata sesi multi-nomor (nama/label tiap sesi WA yang ditambahkan lewat panel).
+  // wa_sessions/wa_session_keys tetap nyimpen creds & signal keys per session_id.
+  await query(`
+    CREATE TABLE IF NOT EXISTS bot_sessions (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      phone_number TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       wa_message_id TEXT,
+      session_id TEXT NOT NULL DEFAULT 'default',
       chat_id TEXT NOT NULL,
       sender TEXT,
       direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
@@ -46,6 +58,8 @@ async function initSchema() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
   `);
+  // Migrasi ringan buat DB lama yang tabel messages-nya belum punya kolom session_id
+  await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS session_id TEXT NOT NULL DEFAULT 'default';`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS autoreply_rules (
@@ -73,6 +87,17 @@ async function initSchema() {
       key TEXT PRIMARY KEY,
       value JSONB
     );
+  `);
+
+  // Migrasi: kalau ada sesi WA lama (sebelum fitur multi-session, id-nya selalu
+  // 'default') tapi belum ada di bot_sessions, daftarkan otomatis biar tetap
+  // muncul di panel setelah update tanpa perlu scan ulang QR.
+  await query(`
+    INSERT INTO bot_sessions (id, label)
+    SELECT ws.id, 'Default'
+    FROM wa_sessions ws
+    LEFT JOIN bot_sessions bs ON bs.id = ws.id
+    WHERE bs.id IS NULL;
   `);
 }
 

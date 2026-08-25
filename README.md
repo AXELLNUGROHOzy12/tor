@@ -83,3 +83,21 @@ Keyword rules (diatur lewat panel/API) selalu dicek lebih dulu sebelum fallback 
   disimpan di PostgreSQL lewat `pgAuthState.js`, bukan file `auth_info_baileys` biasa.
 - Jika koneksi WA putus karena sebab selain logout, backend otomatis reconnect.
 - Jika status `logged_out`, sesi di DB otomatis dihapus — perlu scan QR baru lewat panel/`/api/v1/qr`.
+
+## Multi-Session (banyak nomor WA sekaligus)
+
+Setiap sesi = satu nomor WhatsApp, punya socket & auth state sendiri (disimpan di Postgres per `session_id`).
+
+- Tambah sesi baru lewat panel: **Sesi WhatsApp → Tambah Sesi** (isi nama, scan QR yang muncul di kartu sesi).
+- Restart / Logout / Hapus tersedia per kartu sesi.
+- Semua sesi otomatis disambungkan ulang saat server restart (`restoreSessions()` di `server.js`).
+- REST API sekarang menerima `sessionId` di query/body (`/api/v1/send-message`, `/api/v1/qr?sessionId=...`, dst). Kalau `sessionId` tidak dikirim, default ke `"default"` (sesi lama sebelum fitur ini ada tetap kompatibel).
+
+## Integrasi Telegram
+
+Alih-alih taruh token di `.env`, token & Chat ID admin disimpan lewat panel (**Integrasi Telegram**), tersimpan di tabel `settings` supaya bisa diganti tanpa redeploy.
+
+- Bot Telegram jalan pakai polling (`node-telegram-bot-api`).
+- Command yang tersedia di bot: `/start`, `/sessions` (list sesi & status), `/send <sessionId> <nomor> <pesan>` (kirim WA dari Telegram).
+- Toggle "Forward semua pesan WA masuk ke Telegram" kalau mau semua chat masuk WA diteruskan ke chat Telegram admin.
+- Notifikasi otomatis dikirim ke Telegram saat: QR baru muncul, sesi konek, dan sesi logout.

@@ -21,7 +21,8 @@
     "node-cache": "^5.1.2",
     "axios": "^1.7.7",
     "express-session": "^1.18.0",
-    "connect-pg-simple": "^9.0.1"
+    "connect-pg-simple": "^9.0.1",
+    "node-telegram-bot-api": "^0.66.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
