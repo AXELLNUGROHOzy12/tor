@@ -89,7 +89,38 @@ async function initSchema() {
     );
   `);
 
-  // Migrasi: kalau ada sesi WA lama (sebelum fitur multi-session, id-nya selalu
+  // Multi-session Telegram: tiap bot (token) punya baris sendiri, mirip bot_sessions untuk WA.
+  await query(`
+    CREATE TABLE IF NOT EXISTS telegram_bots (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      token TEXT NOT NULL,
+      chat_id TEXT,
+      forward_messages BOOLEAN DEFAULT false,
+      ai_enabled BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
+  // Migrasi: config Telegram lama (single bot, disimpan di settings key 'telegram')
+  // dipindah jadi baris pertama di telegram_bots, biar yang udah setup gak perlu ulang.
+  await query(`
+    INSERT INTO telegram_bots (id, label, token, chat_id, forward_messages, ai_enabled)
+    SELECT
+      'default',
+      'Bot Utama',
+      value->>'token',
+      value->>'chatId',
+      COALESCE((value->>'forwardMessages')::boolean, false),
+      COALESCE((value->>'aiEnabled')::boolean, true)
+    FROM settings
+    WHERE key = 'telegram'
+      AND value->>'token' IS NOT NULL
+      AND value->>'token' != ''
+      AND NOT EXISTS (SELECT 1 FROM telegram_bots WHERE id = 'default');
+  `);
+
+  // Migrasi: sesi WA lama (sebelum fitur multi-session, id-nya selalu
   // 'default') tapi belum ada di bot_sessions, daftarkan otomatis biar tetap
   // muncul di panel setelah update tanpa perlu scan ulang QR.
   await query(`

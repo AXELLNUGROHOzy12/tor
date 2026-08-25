@@ -115,44 +115,43 @@ router.post('/session/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ===================== Telegram integration =====================
+// ===================== Telegram integration (multi-bot) =====================
 
-// GET /panel/telegram -> config saat ini (token tidak dikirim balik utuh, cuma ditandai ada/tidak)
-router.get('/telegram', async (req, res) => {
-  const cfg = await telegram.getTelegramConfig();
-  const runtime = telegram.getBotRuntimeStatus();
-  res.json({
-    hasToken: !!cfg.token,
-    tokenPreview: cfg.token ? `${cfg.token.slice(0, 6)}...${cfg.token.slice(-4)}` : '',
-    chatId: cfg.chatId,
-    forwardMessages: cfg.forwardMessages,
-    aiEnabled: cfg.aiEnabled,
-    running: runtime.running,
-  });
+// GET /panel/telegram-bots -> daftar semua bot Telegram & statusnya
+router.get('/telegram-bots', (req, res) => {
+  res.json({ bots: telegram.getAllBotStatuses() });
 });
 
-// POST /panel/telegram  { token, chatId, forwardMessages, aiEnabled }
-// token dikosongkan dari form berarti "jangan diganti" -> di-merge sama config lama.
-router.post('/telegram', async (req, res) => {
-  const { token, chatId, forwardMessages, aiEnabled } = req.body;
+// POST /panel/telegram-bots  { label, token, chatId, forwardMessages, aiEnabled } -> bot baru
+router.post('/telegram-bots', async (req, res) => {
   try {
-    const existing = await telegram.getTelegramConfig();
-    await telegram.saveTelegramConfig({
-      token: token || existing.token,
-      chatId: chatId !== undefined ? chatId : existing.chatId,
-      forwardMessages: forwardMessages !== undefined ? forwardMessages : existing.forwardMessages,
-      aiEnabled: aiEnabled !== undefined ? aiEnabled : existing.aiEnabled,
-    });
+    const id = await telegram.createBot(req.body || {});
+    res.json({ ok: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /panel/telegram-bots/:id  -> update config (token kosong = tidak diganti)
+router.patch('/telegram-bots/:id', async (req, res) => {
+  try {
+    await telegram.updateBot(req.params.id, req.body || {});
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /panel/telegram/test -> kirim pesan tes ke chat admin
-router.post('/telegram/test', async (req, res) => {
+// DELETE /panel/telegram-bots/:id
+router.delete('/telegram-bots/:id', async (req, res) => {
+  await telegram.deleteBot(req.params.id);
+  res.json({ ok: true });
+});
+
+// POST /panel/telegram-bots/:id/test -> kirim pesan tes ke chat admin bot ini
+router.post('/telegram-bots/:id/test', async (req, res) => {
   try {
-    await telegram.sendTestMessage();
+    await telegram.sendTestMessage(req.params.id);
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });

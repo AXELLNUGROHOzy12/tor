@@ -183,17 +183,13 @@
 
     <!-- TELEGRAM -->
     <div class="glass card">
-      <h3>Integrasi Telegram</h3>
-      <input id="tgToken" placeholder="Bot Token dari @BotFather" autocomplete="off">
-      <p class="field-hint" id="tgTokenHint">Token disimpan terenkripsi di server, tidak ditampilkan ulang secara utuh.</p>
-      <input id="tgChatId" placeholder="Chat ID admin (kirim /start ke bot untuk lihat Chat ID kamu)">
-      <label class="check"><input type="checkbox" id="tgForward"> Forward semua pesan WA masuk ke Telegram</label>
-      <label class="check"><input type="checkbox" id="tgAi"> Aktifkan chat AI di Telegram (balas otomatis kayak WA)</label>
-      <div class="btn-row">
-        <button onclick="saveTelegram()">Simpan</button>
-        <button class="secondary" onclick="testTelegram()">Kirim Tes</button>
+      <h3>Bot Telegram</h3>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <input id="newTgLabel" placeholder="Nama bot (misal: Notifikasi Admin)" style="margin-bottom:0;">
+        <button onclick="createTelegramBot()" style="white-space:nowrap;">+ Tambah Bot</button>
       </div>
-      <p id="tgStatus" class="field-hint" style="margin-top:10px;"></p>
+      <div id="tgGrid" class="session-grid"></div>
+      <p id="tgEmptyHint" class="empty-hint hidden">Belum ada bot Telegram. Tambahkan bot pertama di atas, lalu isi token & Chat ID.</p>
     </div>
 
     <!-- AUTOREPLY RULES -->
@@ -254,7 +250,7 @@ function loadAll() {
   loadSessions();
   loadRules();
   loadMessages();
-  loadTelegram();
+  loadTelegramBots();
 }
 
 async function checkSession() {
@@ -370,34 +366,107 @@ async function deleteSession(id) {
   loadDashboard();
 }
 
-// ---------------- Telegram ----------------
+// ---------------- Telegram (multi-bot) ----------------
 
-async function loadTelegram() {
-  const d = await api('/telegram');
-  if (!$('tgChatId').matches(':focus')) $('tgChatId').value = d.chatId || '';
-  $('tgForward').checked = !!d.forwardMessages;
-  $('tgAi').checked = d.aiEnabled !== false;
-  $('tgToken').placeholder = d.hasToken ? `Token tersimpan (${d.tokenPreview})` : 'Bot Token dari @BotFather';
-  $('tgStatus').textContent = d.hasToken
-    ? (d.running ? '● Bot Telegram aktif' : '○ Token tersimpan tapi bot belum aktif')
-    : 'Belum ada bot Telegram yang dikonfigurasi';
+async function loadTelegramBots() {
+  const d = await api('/telegram-bots');
+  const grid = $('tgGrid');
+  grid.innerHTML = '';
+  $('tgEmptyHint').classList.toggle('hidden', d.bots.length > 0);
+
+  d.bots.forEach((b) => {
+    const card = document.createElement('div');
+    card.className = 'session-card';
+
+    const statusClass = b.running ? 'status-connected' : (b.hasToken ? 'status-connecting' : 'status-disconnected');
+    const statusText = b.running ? 'Aktif' : (b.hasToken ? 'Token tersimpan, belum aktif' : 'Belum ada token');
+
+    card.innerHTML = `
+      <div class="head">
+        <div>
+          <div class="session-name">${escapeHtml(b.label)}</div>
+          <div class="session-id">${escapeHtml(b.id)}</div>
+        </div>
+        <span class="status-badge ${statusClass}"><span class="dot"></span>${statusText}</span>
+      </div>
+      ${b.lastError ? `<p class="error-text">${escapeHtml(b.lastError)}</p>` : ''}
+    `;
+
+    const tokenInput = document.createElement('input');
+    tokenInput.placeholder = b.hasToken ? `Token tersimpan (${b.tokenPreview})` : 'Bot Token dari @BotFather';
+    tokenInput.autocomplete = 'off';
+
+    const chatIdInput = document.createElement('input');
+    chatIdInput.placeholder = 'Chat ID admin (kirim /start ke bot untuk lihat Chat ID)';
+    chatIdInput.value = b.chatId || '';
+
+    const forwardLabel = document.createElement('label');
+    forwardLabel.className = 'check';
+    const forwardCheck = document.createElement('input');
+    forwardCheck.type = 'checkbox';
+    forwardCheck.checked = !!b.forwardMessages;
+    forwardLabel.append(forwardCheck, ' Forward pesan WA masuk ke bot ini');
+
+    const aiLabel = document.createElement('label');
+    aiLabel.className = 'check';
+    const aiCheck = document.createElement('input');
+    aiCheck.type = 'checkbox';
+    aiCheck.checked = b.aiEnabled !== false;
+    aiLabel.append(aiCheck, ' Aktifkan chat AI (balas otomatis kayak WA)');
+
+    card.append(tokenInput, chatIdInput, forwardLabel, aiLabel);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'btn-row';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Simpan';
+    saveBtn.onclick = () => updateTelegramBot(b.id, {
+      token: tokenInput.value.trim() || undefined,
+      chatId: chatIdInput.value.trim(),
+      forwardMessages: forwardCheck.checked,
+      aiEnabled: aiCheck.checked,
+    });
+
+    const testBtn = document.createElement('button');
+    testBtn.className = 'secondary';
+    testBtn.textContent = 'Kirim Tes';
+    testBtn.onclick = () => testTelegramBot(b.id);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ghost';
+    delBtn.textContent = 'Hapus';
+    delBtn.onclick = () => deleteTelegramBot(b.id);
+
+    btnRow.append(saveBtn, testBtn, delBtn);
+    card.appendChild(btnRow);
+    grid.appendChild(card);
+  });
 }
 
-async function saveTelegram() {
-  const token = $('tgToken').value.trim();
-  const chatId = $('tgChatId').value.trim();
-  const forwardMessages = $('tgForward').checked;
-  const aiEnabled = $('tgAi').checked;
-  const body = { chatId, forwardMessages, aiEnabled };
-  if (token) body.token = token; // kosong berarti tidak diganti
-  const res = await api('/telegram', { method: 'POST', body: JSON.stringify(body) });
-  if (res.ok) { $('tgToken').value = ''; loadTelegram(); }
+async function createTelegramBot() {
+  const label = $('newTgLabel').value.trim();
+  if (!label) return alert('Isi nama bot dulu');
+  await api('/telegram-bots', { method: 'POST', body: JSON.stringify({ label }) });
+  $('newTgLabel').value = '';
+  loadTelegramBots();
+}
+
+async function updateTelegramBot(id, body) {
+  const res = await api(`/telegram-bots/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+  if (res.ok) loadTelegramBots();
   else alert(res.error || 'Gagal menyimpan');
 }
 
-async function testTelegram() {
-  const res = await api('/telegram/test', { method: 'POST' });
+async function testTelegramBot(id) {
+  const res = await api(`/telegram-bots/${encodeURIComponent(id)}/test`, { method: 'POST' });
   alert(res.ok ? 'Pesan tes terkirim ✅' : (res.error || 'Gagal kirim tes'));
+}
+
+async function deleteTelegramBot(id) {
+  if (!confirm(`Hapus bot "${id}"?`)) return;
+  await api(`/telegram-bots/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  loadTelegramBots();
 }
 
 // ---------------- Rules ----------------
